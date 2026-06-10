@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "287340004462",
+    "project_id": "laparapp-project-12939",
+    "storage_bucket": "laparapp-project-12939.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:287340004462:android:11d81e8dfa1ce6d1a1127f",
+        "android_client_info": {
+          "package_name": "com.example.lapar_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "287340004462-m9jdsr74e2pon9207mad2sjs2vu8qf63.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.lapar_app",
+            "certificate_hash": "627b73ee1b24d76de74d0d6c272ef2351e191038"
+          }
+        },
+        {
+          "client_id": "287340004462-prpu2fdujiiqdk28d5tdnucd1msp3mid.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYKP39Koj8YI1xqrWk_JrYGYKWGgvDTUQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "287340004462-prpu2fdujiiqdk28d5tdnucd1msp3mid.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
