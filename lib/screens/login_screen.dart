@@ -26,36 +26,41 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleGoogleSignIn() async {
-    setState(() => _isLoading = true);
+  setState(() => _isLoading = true);
+  
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  await authProvider.signInWithGoogle();
+  
+  setState(() => _isLoading = false);
+  
+  // Cek userData setelah login
+  final userData = authProvider.userData;
+  print("=== AFTER LOGIN ===");
+  print("User Data: $userData");
+  print("User: ${authProvider.user}");
+  
+  if (authProvider.user != null && userData != null && mounted) {
+    final nama = userData['nama'] ?? authProvider.user?.displayName ?? 'Pengguna';
     
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    await authProvider.signInWithGoogle();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Selamat datang, $nama!'),
+        backgroundColor: AppTheme.success,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
     
-    setState(() => _isLoading = false);
-    
-    if (authProvider.user != null && mounted) {
-      final userData = authProvider.userData;
-      final nama = userData?['nama'] ?? authProvider.user?.displayName ?? 'Pengguna';
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Selamat datang, $nama!'),
-          backgroundColor: AppTheme.success,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      
-      Navigator.pushReplacementNamed(context, '/main');
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gagal login dengan Google. Silakan coba lagi.'),
-          backgroundColor: AppTheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
+    Navigator.pushReplacementNamed(context, '/main');
+  } else if (mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Gagal login dengan Google. Silakan coba lagi.'),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
+}
 
   void _handleLogin() {
     if (_formKey.currentState!.validate()) {

@@ -6,6 +6,7 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/main_shell.dart';
 import 'auth_provider.dart';
+import 'providers/product_provider.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -21,8 +22,11 @@ class SnapFloristApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => ProductProvider()),
+      ],
       child: MaterialApp(
         title: 'SnapFlorist',
         debugShowCheckedModeBanner: false,

@@ -1,5 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../auth_provider.dart';
+import '../providers/product_provider.dart';
+import '../models/product.dart';
+import '../widgets/product_form.dart';
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({Key? key}) : super(key: key);
@@ -9,594 +16,571 @@ class StoreScreen extends StatefulWidget {
 }
 
 class _StoreScreenState extends State<StoreScreen> {
-  // Store management state
-  bool _hasStore = false;
-  String _storeName = '';
-  String _storeCategory = 'Roses & Lilies';
-  String _storeDescription = '';
-  String _storeLocation = 'Jakarta, Indonesia';
-
-  // Vendor product listing
-  final List<Map<String, dynamic>> _myProducts = [
-    {
-      'name': 'Sweet Orchid Basket',
-      'price': 65.00,
-      'stock': 12,
-      'image': 'https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?q=80&w=200&auto=format&fit=crop',
-    },
-    {
-      'name': 'Red Velvet Rose Box',
-      'price': 48.00,
-      'stock': 24,
-      'image': 'https://images.unsplash.com/photo-1520763185298-1b434c919102?q=80&w=200&auto=format&fit=crop',
-    },
-  ];
-
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _descController = TextEditingController();
-  final _locController = TextEditingController();
-
   @override
-  void dispose() {
-    _nameController.dispose();
-    _descController.dispose();
-    _locController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProducts();
+    });
   }
 
-  void _createStore() {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _storeName = _nameController.text;
-        _storeDescription = _descController.text;
-        _storeLocation = _locController.text.isNotEmpty ? _locController.text : 'Jakarta, Indonesia';
-        _hasStore = true;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: const [
-              Icon(Icons.storefront, color: Colors.white),
-              SizedBox(width: 12),
-              Text('Toko Bunga Anda Berhasil Didirikan! 🎉'),
-            ],
-          ),
-          backgroundColor: AppTheme.success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
+  Future<void> _loadProducts() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final productProvider = Provider.of<ProductProvider>(context, listen: false);
+    
+    final userData = authProvider.userData;
+    print("=== LOAD PRODUCTS ===");
+    print("User Data: $userData");
+    
+    if (userData != null) {
+      final userId = userData['id'] is int 
+          ? userData['id'] 
+          : int.tryParse(userData['id'].toString()) ?? 0;
+      print("User ID: $userId");
+      if (userId > 0) {
+        final success = await productProvider.fetchProducts(userId);
+        print("Fetch Products Success: $success");
+        print("Total Products: ${productProvider.products.length}");
+        
+        if (mounted) {
+          setState(() {});
+        }
+      }
+    } else {
+      print("User Data NULL - coba refresh login");
     }
   }
 
   void _showAddProductDialog() {
-    final nameCtrl = TextEditingController();
-    final priceCtrl = TextEditingController();
-    final stockCtrl = TextEditingController();
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userData = authProvider.userData;
+    
+    print("=== ADD PRODUCT ===");
+    print("User Data: $userData");
+    
+    int userId = 0;
+    
+    if (userData != null) {
+      userId = userData['id'] is int 
+          ? userData['id'] 
+          : int.tryParse(userData['id'].toString()) ?? 0;
+    } else {
+      final user = authProvider.user;
+      if (user != null) {
+        print("User Firebase: ${user.email}");
+        _findUserByEmail(user.email ?? '');
+        return;
+      }
+    }
+    
+    print("User ID: $userId");
+
+    if (userId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: User ID tidak valid. Silakan login ulang.'),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: const [
-              Icon(Icons.add_shopping_cart, color: AppTheme.primary),
-              SizedBox(width: 10),
-              Text('Tambah Produk Bunga'),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nama Produk Bunga',
-                    hintText: 'Contoh: Lavender Dream Bouquet',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: priceCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Harga (USD)',
-                    hintText: 'Contoh: 35.00',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: stockCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Stok Awal',
-                    hintText: 'Contoh: 15',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal', style: TextStyle(color: AppTheme.textSecondary)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (nameCtrl.text.isNotEmpty && priceCtrl.text.isNotEmpty) {
-                  final price = double.tryParse(priceCtrl.text) ?? 29.99;
-                  final stock = int.tryParse(stockCtrl.text) ?? 10;
-                  
-                  setState(() {
-                    _myProducts.insert(0, {
-                      'name': nameCtrl.text,
-                      'price': price,
-                      'stock': stock,
-                      'image': 'https://images.unsplash.com/photo-1596436889106-be35e843f974?q=80&w=200&auto=format&fit=crop',
-                    });
-                  });
-                  Navigator.pop(context);
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Produk "${nameCtrl.text}" berhasil dipajang!'),
-                      backgroundColor: AppTheme.success,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                minimumSize: const Size(80, 40),
+      barrierDismissible: false,
+      builder: (context) => ProductForm(
+        userId: userId,
+        onSave: (product) async {
+          print("=== SAVING PRODUCT ===");
+          print("Product: ${product.name}");
+          print("User ID: ${product.userId}");
+          
+          final productProvider = Provider.of<ProductProvider>(context, listen: false);
+          Navigator.pop(context);
+          
+          final success = await productProvider.createProduct(
+            userId: userId,
+            name: product.name,
+            price: product.price,
+            description: product.description,
+            stock: product.stock,
+            imageUrl: product.imageUrl,
+            category: product.category,
+          );
+
+          print("Save Success: $success");
+          print("Error Message: ${productProvider.errorMessage}");
+
+          if (success && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Produk berhasil ditambahkan!'),
+                backgroundColor: AppTheme.success,
+                behavior: SnackBarBehavior.floating,
               ),
-              child: const Text('Simpan'),
-            ),
-          ],
-        );
-      },
+            );
+            await _loadProducts();
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Gagal: ${productProvider.errorMessage}'),
+                backgroundColor: AppTheme.error,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
+        onCancel: () => Navigator.pop(context),
+      ),
+    );
+  }
+
+  Future<void> _findUserByEmail(String email) async {
+    try {
+      final response = await http.get(
+        Uri.parse("http://192.168.100.77/tubes_api/get_user_by_email.php?email=$email"),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'success') {
+          final userData = data['data'];
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          authProvider.userData = userData;
+          _showAddProductDialog();
+          return;
+        }
+      }
+    } catch (e) {
+      print("Error finding user: $e");
+    }
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Error: User tidak ditemukan. Silakan login ulang.'),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showEditProductDialog(Product product) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userData = authProvider.userData;
+    
+    int userId = 0;
+    if (userData != null) {
+      userId = userData['id'] is int 
+          ? userData['id'] 
+          : int.tryParse(userData['id'].toString()) ?? 0;
+    }
+
+    if (userId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: User ID tidak valid. Silakan login ulang.'),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => ProductForm(
+        product: product,
+        userId: userId,
+        onSave: (updatedProduct) async {
+          final productProvider = Provider.of<ProductProvider>(context, listen: false);
+          Navigator.pop(context);
+          
+          final success = await productProvider.updateProduct(updatedProduct);
+
+          if (success && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Produk berhasil diupdate!'),
+                backgroundColor: AppTheme.success,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            await _loadProducts();
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Gagal: ${productProvider.errorMessage}'),
+                backgroundColor: AppTheme.error,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
+        onCancel: () => Navigator.pop(context),
+      ),
+    );
+  }
+
+  void _deleteProduct(Product product) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Hapus Produk?'),
+        content: Text('Apakah Anda yakin ingin menghapus "${product.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final productProvider = Provider.of<ProductProvider>(context, listen: false);
+              final success = await productProvider.deleteProduct(product.id);
+              
+              if (success && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Produk berhasil dihapus!'),
+                    backgroundColor: AppTheme.success,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                await _loadProducts();
+              } else if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Gagal: ${productProvider.errorMessage}'),
+                    backgroundColor: AppTheme.error,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final size = MediaQuery.of(context).size;
+    final productProvider = Provider.of<ProductProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context);
+    
+    final userData = authProvider.userData;
+    final userName = userData?['nama'] ?? authProvider.user?.displayName ?? 'Pengguna';
+    
+    int userId = 0;
+    if (userData != null) {
+      userId = userData['id'] is int 
+          ? userData['id'] 
+          : int.tryParse(userData['id'].toString()) ?? 0;
+    }
+
+    print("=== BUILD STORE SCREEN ===");
+    print("User ID: $userId");
+    print("Total Products: ${productProvider.products.length}");
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text(
-          _hasStore ? 'Dashboard Toko' : 'Mulai Usaha Bunga',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Daftar Produk'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () async {
+              await _loadProducts();
+            },
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
-      body: SafeArea(
-        child: _hasStore ? _buildVendorDashboard(theme) : _buildCreateStoreForm(theme, size),
-      ),
-    );
-  }
-
-  // State A: Form to Create Store
-  Widget _buildCreateStoreForm(ThemeData theme, Size size) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Column(
         children: [
-          // Graphic Banner Banner
           Container(
-            height: 140,
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: AppTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Stack(
+            child: Row(
               children: [
-                Positioned(
-                  right: -20,
-                  bottom: -20,
-                  child: Opacity(
-                    opacity: 0.15,
-                    child: Icon(Icons.storefront, size: 160, color: Colors.white),
+                CircleAvatar(
+                  backgroundColor: Colors.white.withOpacity(0.3),
+                  child: Text(
+                    userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(24.0),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
+                    children: [
                       Text(
-                        'Buka Toko SnapFlorist',
-                        style: TextStyle(
+                        'Halo, $userName',
+                        style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 20,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(height: 6),
                       Text(
-                        'Jangkau jutaan pecinta bunga di seluruh Indonesia dan kembangkan bisnis florist Anda bersama kami.',
+                        'User ID: ${userId > 0 ? userId : 'Tidak ada'}',
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 12,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Form Card Card
-          Card(
-            elevation: 2,
-            shadowColor: Colors.black12,
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Store Name
-                    Text(
-                      'Nama Toko Bunga',
-                      style: theme.textTheme.titleMedium?.copyWith(fontSize: 14),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _nameController,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Nama toko tidak boleh kosong';
-                        }
-                        return null;
-                      },
-                      decoration: const InputDecoration(
-                        hintText: 'Contoh: Rose Bouquet Palace',
-                        prefixIcon: Icon(Icons.storefront),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Primary category selector
-                    Text(
-                      'Kategori Spesialisasi',
-                      style: theme.textTheme.titleMedium?.copyWith(fontSize: 14),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: _storeCategory,
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.category_outlined),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'Roses & Lilies', child: Text('Mawar & Lili (Roses & Lilies)')),
-                        DropdownMenuItem(value: 'Sunflowers & Daisies', child: Text('Bunga Matahari (Sunflowers)')),
-                        DropdownMenuItem(value: 'Orchid Arrangements', child: Text('Anggrek (Orchids)')),
-                        DropdownMenuItem(value: 'Custom Bridal Bouquets', child: Text('Karangan Pengantin (Bridal)')),
-                      ],
-                      onChanged: (val) {
-                        setState(() {
-                          _storeCategory = val ?? 'Roses & Lilies';
-                        });
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Description
-                    Text(
-                      'Deskripsi Toko',
-                      style: theme.textTheme.titleMedium?.copyWith(fontSize: 14),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _descController,
-                      maxLines: 3,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Deskripsi toko tidak boleh kosong';
-                        }
-                        return null;
-                      },
-                      decoration: const InputDecoration(
-                        hintText: 'Tulis keunikan bunga atau layanan toko Anda...',
-                        prefixIcon: Icon(Icons.description_outlined),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Location
-                    Text(
-                      'Lokasi Toko',
-                      style: theme.textTheme.titleMedium?.copyWith(fontSize: 14),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _locController,
-                      decoration: const InputDecoration(
-                        hintText: 'Contoh: Jakarta Barat (Kosongkan jika online)',
-                        prefixIcon: Icon(Icons.location_on_outlined),
-                      ),
-                    ),
-
-                    const SizedBox(height: 28),
-
-                    // Submit Button Button
-                    ElevatedButton(
-                      onPressed: _createStore,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Text('Daftarkan Toko Baru Anda'),
-                          SizedBox(width: 8),
-                          Icon(Icons.arrow_forward),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // State B: Shop Dashboard UI
-  Widget _buildVendorDashboard(ThemeData theme) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1. Store Header Info Card Card
-          Card(
-            elevation: 1,
-            color: Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Row(
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryLight,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(Icons.storefront, color: AppTheme.primary, size: 32),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _storeName,
-                          style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(Icons.local_florist, color: AppTheme.accent, size: 14),
-                            const SizedBox(width: 4),
-                            Text(
-                              _storeCategory,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: AppTheme.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            const Icon(Icons.location_on, color: Colors.redAccent, size: 14),
-                            const SizedBox(width: 4),
-                            Text(
-                              _storeLocation,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: AppTheme.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (_storeDescription.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            _storeDescription,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontSize: 11,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // 2. Quick Stat Counters Counters
-          Row(
-            children: [
-              _buildStatCard('Omset', '\$4,250.00', Icons.monetization_on, Colors.green),
-              const SizedBox(width: 12),
-              _buildStatCard('Produk', _myProducts.length.toString(), Icons.shopping_basket, Colors.blue),
-              const SizedBox(width: 12),
-              _buildStatCard('Pesanan', '3 Baru', Icons.receipt_long, Colors.orange),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // 3. Section Title with Add Product Action
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Daftar Bunga Toko Saya',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              ElevatedButton.icon(
-                onPressed: _showAddProductDialog,
-                icon: const Icon(Icons.add, size: 16, color: Colors.white),
-                label: const Text('Tambah Bunga', style: TextStyle(fontSize: 12)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  minimumSize: const Size(120, 36),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          // 4. List view of vendor products
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _myProducts.length,
-            itemBuilder: (context, index) {
-              final prod = _myProducts[index];
-              return Card(
-                elevation: 0,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: AppTheme.border),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          prod['image'],
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                          errorBuilder: (c, o, s) => const Icon(Icons.local_florist, size: 40),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              prod['name'],
-                              style: theme.textTheme.titleMedium?.copyWith(fontSize: 14),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Stok: ${prod['stock']} ikat',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: AppTheme.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                       Text(
-                        '\$${prod['price'].toStringAsFixed(2)}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: AppTheme.primary,
-                          fontWeight: FontWeight.bold,
+                        'Total Produk: ${productProvider.products.length}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
                         ),
                       ),
                     ],
                   ),
                 ),
-              );
-            },
+                ElevatedButton.icon(
+                  onPressed: _showAddProductDialog,
+                  icon: const Icon(Icons.add, color: Colors.white, size: 18),
+                  label: const Text(
+                    'Tambah',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.primary,
+                    minimumSize: const Size(80, 36),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          
-          const SizedBox(height: 20),
-          
-          // Button to temporarily simulate returning to A (for demoing purposes)
-          TextButton.icon(
-            onPressed: () {
-              setState(() {
-                _hasStore = false;
-              });
-            },
-            icon: const Icon(Icons.settings_backup_restore, size: 16),
-            label: const Text('Simulasi Reset (Buka Toko Baru)'),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
+          Expanded(
+            child: productProvider.isLoading
+                ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+                : productProvider.products.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.inventory_2_outlined,
+                              size: 80,
+                              color: Colors.grey[300],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Belum ada produk',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Klik tombol "Tambah" untuk menambahkan produk',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _loadProducts,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          itemCount: productProvider.products.length,
+                          itemBuilder: (context, index) {
+                            final product = productProvider.products[index];
+                            return _buildProductCard(product, theme);
+                          },
+                        ),
+                      ),
           ),
         ],
       ),
     );
   }
 
-  // Utility to build stat card counters
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Card(
-        color: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppTheme.border),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: color, size: 24),
-              const SizedBox(height: 12),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
-                ),
+  Widget _buildProductCard(Product product, ThemeData theme) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shadowColor: Colors.black12,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppTheme.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: product.imageUrl.isNotEmpty
+                  ? Image.network(
+                      product.imageUrl,
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 80,
+                          height: 80,
+                          color: AppTheme.accentLight,
+                          child: const Icon(
+                            Icons.local_florist,
+                            size: 40,
+                            color: AppTheme.primary,
+                          ),
+                        );
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          width: 80,
+                          height: 80,
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.primary,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      width: 80,
+                      height: 80,
+                      color: AppTheme.accentLight,
+                      child: const Icon(
+                        Icons.local_florist,
+                        size: 40,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  if (product.category.isNotEmpty)
+                    Text(
+                      'Kategori: ${product.category}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        'Rp ${product.price.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          color: AppTheme.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: product.stock > 0 
+                              ? AppTheme.success.withOpacity(0.1)
+                              : AppTheme.error.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Stok: ${product.stock}',
+                          style: TextStyle(
+                            color: product.stock > 0 ? AppTheme.success : AppTheme.error,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (product.description.isNotEmpty)
+                    Text(
+                      product.description,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                        fontSize: 11,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppTheme.textSecondary,
+            ),
+            Column(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.edit_outlined, color: AppTheme.primary, size: 20),
+                    onPressed: () => _showEditProductDialog(product),
+                    tooltip: 'Edit',
+                    padding: const EdgeInsets.all(8),
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.error.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.delete_outline, color: AppTheme.error, size: 20),
+                    onPressed: () => _deleteProduct(product),
+                    tooltip: 'Hapus',
+                    padding: const EdgeInsets.all(8),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
-}
+}   

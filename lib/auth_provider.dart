@@ -12,9 +12,14 @@ class AuthProvider with ChangeNotifier {
   User? get user => _user;
   bool _initialized = false;
   
-  // Data tambahan dari backend
   Map<String, dynamic>? _userData;
   Map<String, dynamic>? get userData => _userData;
+  
+  // TAMBAHKAN SETTER INI
+  set userData(Map<String, dynamic>? value) {
+    _userData = value;
+    notifyListeners();
+  }
 
   AuthProvider() {
     _auth.authStateChanges().listen((User? newUser) {
@@ -31,7 +36,6 @@ class AuthProvider with ChangeNotifier {
     _googleSignIn.attemptLightweightAuthentication();
   }
 
-  // ======== LOGIN DENGAN GOOGLE ========
   Future<void> signInWithGoogle() async {
     try {
       final GoogleSignInAccount googleUser = await _googleSignIn.authenticate();
@@ -42,19 +46,16 @@ class AuthProvider with ChangeNotifier {
         return;
       }
 
-      // Login ke Firebase
       final AuthCredential credential = GoogleAuthProvider.credential(
         idToken: idToken,
       );
       await _auth.signInWithCredential(credential);
 
-      // Kirim token ke backend PHP
-      // GANTI IP INI DENGAN IP KOMPUTER ANDA!
-      final String baseUrl = "http://192.168.100.77";
+      final String baseUrl = "http://192.168.100.77/tubes_api";
 
       debugPrint("Mencoba kirim ke PHP...");
       final response = await http.post(
-        Uri.parse("$baseUrl/tubesppb/login.php"),
+        Uri.parse("$baseUrl/login.php"),
         body: {"id_token": idToken},
       );
 
@@ -65,21 +66,25 @@ class AuthProvider with ChangeNotifier {
       
       if (responseData["status"] == "success") {
         _userData = responseData["data"];
-        debugPrint("User data: ${responseData['data']}");
-        debugPrint("Pesan: ${responseData["message"]}");
+        debugPrint("=== USER DATA SAVED ===");
+        debugPrint("User ID: ${_userData?['id']}");
+        debugPrint("User Name: ${_userData?['nama']}");
+        debugPrint("User Email: ${_userData?['email']}");
+        debugPrint("Full User Data: $_userData");
+        notifyListeners();
       } else {
         debugPrint("Error dari server: ${responseData["message"]}");
+        _userData = null;
       }
 
     } catch (e) {
       debugPrint("Error login: $e");
+      _userData = null;
     }
   }
 
-  // ======== REGISTER DENGAN GOOGLE ========
   Future<bool> registerWithGoogle() async {
     try {
-      // 1. Login dengan Google
       final GoogleSignInAccount googleUser = await _googleSignIn.authenticate();
       final String? idToken = googleUser.authentication.idToken;
 
@@ -88,19 +93,16 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
 
-      // 2. Login ke Firebase
       final AuthCredential credential = GoogleAuthProvider.credential(
         idToken: idToken,
       );
       await _auth.signInWithCredential(credential);
 
-      // 3. Kirim token ke endpoint REGISTER
-      // GANTI IP INI DENGAN IP KOMPUTER ANDA!
-      final String baseUrl = "http://128.150.2.126";
+      final String baseUrl = "http://192.168.100.77/tubes_api";
       
       debugPrint("Mengirim request register ke PHP...");
       final response = await http.post(
-        Uri.parse("$baseUrl/tubesppb/register_google.php"),
+        Uri.parse("$baseUrl/register_google.php"),
         body: {"id_token": idToken},
       );
 
@@ -111,20 +113,23 @@ class AuthProvider with ChangeNotifier {
       
       if (responseData["status"] == "success") {
         _userData = responseData["data"];
-        debugPrint("Registrasi berhasil: ${responseData['message']}");
+        debugPrint("User ID: ${_userData?['id']}");
+        notifyListeners();
         return true;
       } else if (responseData["status"] == "exists") {
-        // User sudah ada, tapi kita anggap berhasil (tetap login)
         _userData = responseData["data"];
-        debugPrint("User sudah ada: ${responseData['message']}");
+        debugPrint("User sudah ada, ID: ${_userData?['id']}");
+        notifyListeners();
         return true;
       } else {
         debugPrint("Error register: ${responseData['message']}");
+        _userData = null;
         return false;
       }
 
     } catch (e) {
       debugPrint("Error register with Google: $e");
+      _userData = null;
       return false;
     }
   }
@@ -133,5 +138,6 @@ class AuthProvider with ChangeNotifier {
     await _googleSignIn.signOut();
     await _auth.signOut();
     _userData = null;
+    notifyListeners();
   }
 }

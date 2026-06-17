@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lapar_app/providers/product_provider.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../auth_provider.dart';
@@ -17,6 +18,7 @@ class ProfileScreen extends StatelessWidget {
 
   Future<void> _handleLogout(BuildContext context) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final productProvider = Provider.of<ProductProvider>(context, listen: false);
     
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -25,6 +27,7 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
     
+    productProvider.clearProducts();
     await authProvider.signOut();
     
     if (context.mounted) {
@@ -37,11 +40,13 @@ class ProfileScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
+    final userData = authProvider.userData;
     
-    final String userName = user?.displayName ?? 'Pengguna SnapFlorist';
-    final String userEmail = user?.email ?? 'email@example.com';
+    final String userName = userData?['nama'] ?? user?.displayName ?? 'Pengguna SnapFlorist';
+    final String userEmail = userData?['email'] ?? user?.email ?? 'email@example.com';
     final String? photoUrl = user?.photoURL;
     final String initial = userName.isNotEmpty ? userName[0].toUpperCase() : 'U';
+    final String userId = userData?['id']?.toString() ?? '';
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -161,6 +166,16 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              if (userId.isNotEmpty)
+                Center(
+                  child: Text(
+                    'User ID: $userId',
+                    style: const TextStyle(
+                      color: AppTheme.textLight,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
 
               const SizedBox(height: 24),
 
