@@ -34,7 +34,26 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = false);
     
     if (authProvider.user != null && mounted) {
+      final userData = authProvider.userData;
+      final nama = userData?['nama'] ?? authProvider.user?.displayName ?? 'Pengguna';
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Selamat datang, $nama!'),
+          backgroundColor: AppTheme.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      
       Navigator.pushReplacementNamed(context, '/main');
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal login dengan Google. Silakan coba lagi.'),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
