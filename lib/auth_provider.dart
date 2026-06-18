@@ -51,7 +51,7 @@ class AuthProvider with ChangeNotifier {
       );
       await _auth.signInWithCredential(credential);
 
-      final String baseUrl = "http://192.168.0.13/tubes_api";
+      final String baseUrl = "http://10.0.166.160/tubes_api";
 
       debugPrint("Mencoba kirim ke PHP...");
       final response = await http.post(
@@ -98,7 +98,7 @@ class AuthProvider with ChangeNotifier {
       );
       await _auth.signInWithCredential(credential);
 
-      final String baseUrl = "http://192.168.0.13/tubes_api";
+      final String baseUrl = "http://10.0.166.160/tubes_api";
       
       debugPrint("Mengirim request register ke PHP...");
       final response = await http.post(

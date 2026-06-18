@@ -12,7 +12,7 @@ class ProductProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String get errorMessage => _errorMessage;
 
-  final String baseUrl = "http://192.168.0.13/tubes_api";
+  final String baseUrl = "http://10.0.166.160/tubes_api";
 
   Future<bool> createProduct({
     required int userId,
