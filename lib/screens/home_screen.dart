@@ -1,35 +1,67 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../widgets/home_header.dart';
 import '../widgets/home_ads_slider.dart';
 import '../widgets/home_categories.dart';
 import '../widgets/home_product_grid.dart';
 import '../theme/app_theme.dart';
+import '../providers/product_provider.dart';
+import '../auth_provider.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
   @override
+  HomeScreenState createState() => HomeScreenState();
+}
+
+class HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProducts();
+    });
+  }
+
+  Future<void> _loadProducts() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final productProvider = Provider.of<ProductProvider>(context, listen: false);
+    
+    final userData = authProvider.userData;
+    if (userData != null) {
+      final userId = userData['id'] is int 
+          ? userData['id'] 
+          : int.tryParse(userData['id'].toString()) ?? 0;
+      if (userId > 0) {
+        await productProvider.fetchProducts(userId);
+        if (mounted) setState(() {});
+      }
+    }
+  }
+
+  Future<void> refreshProducts() async {
+    await _loadProducts();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: BouncingScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 1. Header widget with logo and buttons
-              HomeHeader(),
-              
-              // 2. Promotional slider with page dots
-              HomeAdsSlider(),
-              
-              // 3. Category selector chips horizontal list
-              HomeCategories(),
-              
-              // 4. Main Product Grid
-              HomeProductGrid(),
-            ],
+        child: RefreshIndicator(
+          onRefresh: _loadProducts,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                HomeHeader(),
+                HomeAdsSlider(),
+                HomeCategories(),
+                HomeProductGrid(),
+              ],
+            ),
           ),
         ),
       ),

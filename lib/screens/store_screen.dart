@@ -12,10 +12,10 @@ class StoreScreen extends StatefulWidget {
   const StoreScreen({Key? key}) : super(key: key);
 
   @override
-  State<StoreScreen> createState() => _StoreScreenState();
+  StoreScreenState createState() => StoreScreenState();
 }
 
-class _StoreScreenState extends State<StoreScreen> {
+class StoreScreenState extends State<StoreScreen> {
   @override
   void initState() {
     super.initState();
@@ -49,6 +49,10 @@ class _StoreScreenState extends State<StoreScreen> {
     } else {
       print("User Data NULL - coba refresh login");
     }
+  }
+
+  Future<void> refreshProducts() async {
+    await _loadProducts();
   }
 
   void _showAddProductDialog() {
@@ -583,4 +587,4 @@ class _StoreScreenState extends State<StoreScreen> {
       ),
     );
   }
-}   
+}

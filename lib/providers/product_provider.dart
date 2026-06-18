@@ -12,7 +12,7 @@ class ProductProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String get errorMessage => _errorMessage;
 
-  final String baseUrl = "http://192.168.100.77/tubes_api";
+  final String baseUrl = "http://192.168.0.13/tubes_api";
 
   Future<bool> createProduct({
     required int userId,
@@ -115,7 +115,6 @@ class ProductProvider with ChangeNotifier {
           List<dynamic> productData = data['data'] ?? [];
           print("Product Data Length: ${productData.length}");
           
-          // KOSONGKAN DULU SEBELUM DIISI
           _products = [];
           
           for (var item in productData) {
@@ -131,7 +130,7 @@ class ProductProvider with ChangeNotifier {
           
           print("Total Products: ${_products.length}");
           _isLoading = false;
-          notifyListeners(); // PASTIKAN NOTIFY LISTENERS
+          notifyListeners();
           return true;
         } else {
           _errorMessage = data['message'] ?? 'Gagal mengambil data';

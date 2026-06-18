@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../providers/product_provider.dart';
+import '../models/product.dart';
+import '../auth_provider.dart';
 
 class HomeProductGrid extends StatefulWidget {
   const HomeProductGrid({Key? key}) : super(key: key);
@@ -9,71 +13,54 @@ class HomeProductGrid extends StatefulWidget {
 }
 
 class _HomeProductGridState extends State<HomeProductGrid> {
-  // Product dataset as shown in the screenshot
-  final List<Map<String, dynamic>> _products = [
-    {
-      'id': 'p1',
-      'name': 'Eternal Lilies',
-      'category': 'Bouquet',
-      'price': 45.00,
-      'image': 'https://images.unsplash.com/photo-1596436889106-be35e843f974?q=80&w=400&auto=format&fit=crop',
-      'isFavorite': false,
-    },
-    {
-      'id': 'p2',
-      'name': 'Spring Glow',
-      'category': 'Tulip Mix',
-      'price': 38.00,
-      'image': 'https://images.unsplash.com/photo-1520763185298-1b434c919102?q=80&w=400&auto=format&fit=crop',
-      'isFavorite': false,
-    },
-    {
-      'id': 'p3',
-      'name': 'Golden Days',
-      'category': 'Hand-tied',
-      'price': 52.00,
-      'image': 'https://images.unsplash.com/photo-1597848212624-a19eb35e2651?q=80&w=400&auto=format&fit=crop',
-      'isFavorite': false,
-    },
-    {
-      'id': 'p4',
-      'name': 'Orchid Zen',
-      'category': 'Arrangement',
-      'price': 89.00,
-      'image': 'https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?q=80&w=400&auto=format&fit=crop',
-      'isFavorite': false,
-    },
-  ];
-
-  void _toggleFavorite(int index) {
-    setState(() {
-      _products[index]['isFavorite'] = !_products[index]['isFavorite'];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProducts();
     });
+  }
 
-    final isFav = _products[index]['isFavorite'];
-    final name = _products[index]['name'];
+  Future<void> _loadProducts() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final productProvider = Provider.of<ProductProvider>(context, listen: false);
+    
+    final userData = authProvider.userData;
+    print("=== HOME LOAD PRODUCTS ===");
+    print("User Data: $userData");
+    
+    if (userData != null) {
+      final userId = userData['id'] is int 
+          ? userData['id'] 
+          : int.tryParse(userData['id'].toString()) ?? 0;
+      print("User ID: $userId");
+      
+      if (userId > 0) {
+        await productProvider.fetchProducts(userId);
+        print("Total Products di Home: ${productProvider.products.length}");
+        if (mounted) setState(() {});
+      }
+    }
+  }
 
+  void _toggleFavorite(Product product) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          isFav
-              ? '$name telah ditambahkan ke favorit ❤'
-              : '$name dihapus dari favorit',
-        ),
+        content: Text('${product.name} ditambahkan ke favorit ❤'),
         duration: const Duration(seconds: 1),
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  void _addToCart(Map<String, dynamic> product) {
+  void _addToCart(Product product) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             const Icon(Icons.check_circle_outline, color: Colors.white),
             const SizedBox(width: 10),
-            Expanded(child: Text('${product['name']} berhasil ditambahkan ke keranjang!')),
+            Expanded(child: Text('${product.name} berhasil ditambahkan ke keranjang!')),
           ],
         ),
         backgroundColor: AppTheme.success,
@@ -87,11 +74,12 @@ class _HomeProductGridState extends State<HomeProductGrid> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final productProvider = Provider.of<ProductProvider>(context);
+    final products = productProvider.products;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Grid Header Header
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
@@ -107,7 +95,10 @@ class _HomeProductGridState extends State<HomeProductGrid> {
               GestureDetector(
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Semua produk disimulasikan.')),
+                    const SnackBar(
+                      content: Text('Lihat semua produk di halaman Store'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
                   );
                 },
                 child: Text(
@@ -124,184 +115,238 @@ class _HomeProductGridState extends State<HomeProductGrid> {
 
         const SizedBox(height: 8),
 
-        // Product Grid Layout
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(), // Scroll managed by parent SingleChildScrollView
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 0.68,
-            ),
-            itemCount: _products.length,
-            itemBuilder: (context, index) {
-              final product = _products[index];
-
-              return Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.border, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Product image with favorite button
-                    Expanded(
-                      flex: 4,
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Image.network(
-                              product['image'],
-                              fit: BoxFit.cover,
-                              loadingBuilder: (c, child, progress) {
-                                if (progress == null) return child;
-                                return Container(
-                                  color: Colors.grey[100],
-                                  child: const Center(
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
-                                  ),
-                                );
-                              },
-                              errorBuilder: (c, o, s) => Container(
-                                color: AppTheme.accentLight,
-                                child: const Icon(Icons.local_florist, color: AppTheme.accent, size: 40),
-                              ),
-                            ),
-                            
-                            // Favorite heart button
-                            Positioned(
-                              top: 10,
-                              right: 10,
-                              child: Container(
-                                width: 34,
-                                height: 34,
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black12,
-                                      blurRadius: 4,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(17),
-                                    onTap: () => _toggleFavorite(index),
-                                    child: Icon(
-                                      product['isFavorite']
-                                          ? Icons.favorite
-                                          : Icons.favorite_border,
-                                      size: 18,
-                                      color: product['isFavorite']
-                                          ? AppTheme.error
-                                          : AppTheme.primary,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+          child: productProvider.isLoading
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40.0),
+                    child: CircularProgressIndicator(color: AppTheme.primary),
+                  ),
+                )
+              : products.isEmpty
+                  ? _buildEmptyState(theme)
+                  : GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                        childAspectRatio: 0.68,
                       ),
+                      itemCount: products.length > 4 ? 4 : products.length,
+                      itemBuilder: (context, index) {
+                        final product = products[index];
+                        return _buildProductCard(context, product);
+                      },
                     ),
-
-                    // Info and price price details
-                    Expanded(
-                      flex: 3,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  product['name'],
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  product['category'],
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontSize: 12,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '\$${product['price'].toStringAsFixed(2)}',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontSize: 16,
-                                    color: AppTheme.primary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                
-                                // Plus Add Button
-                                Container(
-                                  width: 34,
-                                  height: 34,
-                                  decoration: const BoxDecoration(
-                                    color: AppTheme.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(17),
-                                      onTap: () => _addToCart(product),
-                                      child: const Icon(
-                                        Icons.add,
-                                        size: 18,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
         ),
         const SizedBox(height: 24),
       ],
+    );
+  }
+
+  Widget _buildEmptyState(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 60,
+            color: Colors.grey[300],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Belum ada produk',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tambahkan produk di halaman Store',
+            style: theme.textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductCard(BuildContext context, Product product) {
+    final theme = Theme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.border, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 4,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  product.imageUrl.isNotEmpty
+                      ? Image.network(
+                          product.imageUrl,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (c, child, progress) {
+                            if (progress == null) return child;
+                            return Container(
+                              color: Colors.grey[100],
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.primary,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (c, o, s) => Container(
+                            color: AppTheme.accentLight,
+                            child: const Icon(
+                              Icons.local_florist,
+                              color: AppTheme.accent,
+                              size: 40,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          color: AppTheme.accentLight,
+                          child: const Icon(
+                            Icons.local_florist,
+                            color: AppTheme.accent,
+                            size: 40,
+                          ),
+                        ),
+                  
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(17),
+                          onTap: () => _toggleFavorite(product),
+                          child: const Icon(
+                            Icons.favorite_border,
+                            size: 18,
+                            color: AppTheme.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          Expanded(
+            flex: 3,
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        product.category.isNotEmpty ? product.category : 'Produk',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Rp ${product.price.toStringAsFixed(0)}',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontSize: 16,
+                          color: AppTheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: const BoxDecoration(
+                          color: AppTheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(17),
+                            onTap: () => _addToCart(product),
+                            child: const Icon(
+                              Icons.add,
+                              size: 18,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
